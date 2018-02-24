@@ -64,4 +64,4 @@ apply plugin: 'idea'
 
 mainClassName = "io.grpc.examples.KvStore"
 
-applicationDefaultJvmArgs = ["-Xmx8g", "-Xms8g", "-agentlib:yjpagent"]
+applicationDefaultJvmArgs = ["-Xmx8g", "-Xms8g"]
