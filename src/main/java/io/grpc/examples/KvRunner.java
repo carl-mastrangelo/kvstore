@@ -47,6 +47,7 @@ public final class KvRunner {
     try {
       AtomicBoolean done = new AtomicBoolean();
       KvClient client = new KvClient(channel);
+      logger.info("Starting");
       scheduler.schedule(() -> done.set(true), DURATION_SECONDS, TimeUnit.SECONDS);
       client.doClientWork(done);
       double qps = client.getRpcCount() / DURATION_SECONDS;

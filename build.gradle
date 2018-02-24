@@ -62,6 +62,6 @@ apply plugin: 'application'
 // Generate IntelliJ IDEA's .idea & .iml project files
 apply plugin: 'idea'
 
-mainClassName = "io.grpc.examples.KvStore"
+mainClassName = "io.grpc.examples.KvRunner"
 
 applicationDefaultJvmArgs = ["-Xmx8g", "-Xms8g"]
