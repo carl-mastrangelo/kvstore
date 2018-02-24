@@ -50,7 +50,7 @@ public final class KvRunner {
       logger.info("Starting");
       scheduler.schedule(() -> done.set(true), DURATION_SECONDS, TimeUnit.SECONDS);
       client.doClientWork(done);
-      double qps = client.getRpcCount() / DURATION_SECONDS;
+      double qps = (double) client.getRpcCount() / DURATION_SECONDS;
       logger.log(Level.INFO, "Did {0} RPCs/s", new Object[]{qps});
     } finally {
       scheduler.shutdownNow();

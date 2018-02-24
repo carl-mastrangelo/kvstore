@@ -15,6 +15,7 @@ import io.grpc.stub.StreamObserver;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -24,6 +25,9 @@ import java.util.Map;
  */
 final class KvService extends KeyValueServiceImplBase {
 
+  private static final long READ_DELAY_MILLIS = 10;
+  private static final long WRITE_DELAY_MILLIS = 50;
+
   private final Map<ByteBuffer, ByteBuffer> store = new HashMap<>();
 
   @Override
@@ -31,6 +35,7 @@ final class KvService extends KeyValueServiceImplBase {
       CreateRequest request, StreamObserver<CreateResponse> responseObserver) {
     ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
     ByteBuffer value = request.getValue().asReadOnlyByteBuffer();
+    simulateWork(WRITE_DELAY_MILLIS);
     if (store.putIfAbsent(key, value) == null) {
       responseObserver.onNext(CreateResponse.getDefaultInstance());
       responseObserver.onCompleted();
@@ -43,6 +48,7 @@ final class KvService extends KeyValueServiceImplBase {
   public synchronized void retrieve(RetrieveRequest request,
       StreamObserver<RetrieveResponse> responseObserver) {
     ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
+    simulateWork(READ_DELAY_MILLIS);
     ByteBuffer value = store.get(key);
     if (value != null) {
       responseObserver.onNext(
@@ -58,6 +64,7 @@ final class KvService extends KeyValueServiceImplBase {
       UpdateRequest request, StreamObserver<UpdateResponse> responseObserver) {
     ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
     ByteBuffer newValue = request.getValue().asReadOnlyByteBuffer();
+    simulateWork(WRITE_DELAY_MILLIS);
     ByteBuffer oldValue = store.get(key);
     if (oldValue == null) {
       responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
@@ -72,8 +79,18 @@ final class KvService extends KeyValueServiceImplBase {
   public synchronized void delete(
       DeleteRequest request, StreamObserver<DeleteResponse> responseObserver) {
     ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
+    simulateWork(WRITE_DELAY_MILLIS);
     store.remove(key);
     responseObserver.onNext(DeleteResponse.getDefaultInstance());
     responseObserver.onCompleted();
+  }
+
+  private static void simulateWork(long millis) {
+    try {
+      TimeUnit.MILLISECONDS.sleep(millis);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
+    }
   }
 }
