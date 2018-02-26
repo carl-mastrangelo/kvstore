@@ -23,6 +23,10 @@ final class RandomAccessSet<T> {
     return nodeList.get(r.nextInt(nodeList.size())).value;
   }
 
+  boolean contains(T value) {
+    return nodeMap.containsKey(new Node<>(value));
+  }
+
   boolean add(T value) {
     Node<T> node = new Node<>(value);
     if (nodeMap.putIfAbsent(node, node) != null) {
