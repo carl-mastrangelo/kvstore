@@ -1,6 +1,5 @@
 package io.grpc.examples;
 
-import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

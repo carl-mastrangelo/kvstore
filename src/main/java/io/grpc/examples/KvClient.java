@@ -1,24 +1,25 @@
 package io.grpc.examples;
 
+
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.ByteString;
+import io.grpc.CallOptions;
 import io.grpc.Channel;
+import io.grpc.ClientCall;
 import io.grpc.Status;
 import io.grpc.Status.Code;
-import io.grpc.StatusRuntimeException;
-import io.grpc.examples.proto.CreateRequest;
-import io.grpc.examples.proto.CreateResponse;
-import io.grpc.examples.proto.DeleteRequest;
-import io.grpc.examples.proto.DeleteResponse;
-import io.grpc.examples.proto.KeyValueServiceGrpc;
-import io.grpc.examples.proto.KeyValueServiceGrpc.KeyValueServiceFutureStub;
-import io.grpc.examples.proto.RetrieveRequest;
-import io.grpc.examples.proto.RetrieveResponse;
-import io.grpc.examples.proto.UpdateRequest;
-import io.grpc.examples.proto.UpdateResponse;
+import io.grpc.examples.KvGson.CreateRequest;
+import io.grpc.examples.KvGson.CreateResponse;
+import io.grpc.examples.KvGson.DeleteRequest;
+import io.grpc.examples.KvGson.DeleteResponse;
+import io.grpc.examples.KvGson.RetrieveRequest;
+import io.grpc.examples.KvGson.RetrieveResponse;
+import io.grpc.examples.KvGson.UpdateRequest;
+import io.grpc.examples.KvGson.UpdateResponse;
+import io.grpc.stub.ClientCalls;
+import java.nio.ByteBuffer;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,7 +38,7 @@ final class KvClient {
   private final int MEAN_KEY_SIZE = 64;
   private final int MEAN_VALUE_SIZE = 65536;
 
-  private final RandomAccessSet<ByteString> knownKeys = new RandomAccessSet<>();
+  private final RandomAccessSet<ByteBuffer> knownKeys = new RandomAccessSet<>();
   private final Channel channel;
 
   private AtomicLong rpcCount = new AtomicLong();
@@ -57,14 +58,13 @@ final class KvClient {
    */
   void doClientWork(AtomicBoolean done) throws InterruptedException {
     Random random = new Random();
-    KeyValueServiceFutureStub stub = KeyValueServiceGrpc.newFutureStub(channel);
     AtomicReference<Throwable> errors = new AtomicReference<>();
 
     while (!done.get() && errors.get() == null) {
       // Pick a random CRUD action to take.
       int command = random.nextInt(4);
       if (command == 0) {
-        doCreate(stub, errors);
+        doCreate(channel, errors);
         continue;
       }
       synchronized (knownKeys) {
@@ -74,11 +74,11 @@ final class KvClient {
         }
       }
       if (command == 1) {
-        doRetrieve(stub, errors);
+        doRetrieve(channel, errors);
       } else if (command == 2) {
-        doUpdate(stub, errors);
+        doUpdate(channel, errors);
       } else if (command == 3) {
-        doDelete(stub, errors);
+        doDelete(channel, errors);
       } else {
         throw new AssertionError();
       }
@@ -91,15 +91,17 @@ final class KvClient {
   /**
    * Creates a random key and value.
    */
-  private void doCreate(KeyValueServiceFutureStub stub, AtomicReference<Throwable> error)
+  private void doCreate(Channel chan, AtomicReference<Throwable> error)
       throws InterruptedException {
     limiter.acquire();
-    ByteString key = createRandomKey();
-    ListenableFuture<CreateResponse> res = stub.create(
-        CreateRequest.newBuilder()
-            .setKey(key)
-            .setValue(randomBytes(MEAN_VALUE_SIZE))
-            .build());
+    ByteBuffer key = createRandomKey();
+    ClientCall<CreateRequest, CreateResponse> call =
+        chan.newCall(KvGson.CREATE_METHOD, CallOptions.DEFAULT);
+    KvGson.CreateRequest req = new KvGson.CreateRequest();
+    req.key = key.array();
+    req.value = randomBytes(MEAN_VALUE_SIZE).array();
+
+    ListenableFuture<CreateResponse> res = ClientCalls.futureUnaryCall(call, req);
     res.addListener(() ->  {
       rpcCount.incrementAndGet();
       limiter.release();
@@ -107,9 +109,6 @@ final class KvClient {
     Futures.addCallback(res, new FutureCallback<CreateResponse>() {
       @Override
       public void onSuccess(CreateResponse result) {
-        if (!result.equals(CreateResponse.getDefaultInstance())) {
-          error.compareAndSet(null, new RuntimeException("Invalid response"));
-        }
         synchronized (knownKeys) {
           knownKeys.add(key);
         }
@@ -133,16 +132,19 @@ final class KvClient {
   /**
    * Retrieves the value of a random key.
    */
-  private void doRetrieve(KeyValueServiceFutureStub stub, AtomicReference<Throwable> error)
+  private void doRetrieve(Channel chan, AtomicReference<Throwable> error)
       throws InterruptedException {
     limiter.acquire();
-    ByteString key;
+    ByteBuffer key;
     synchronized (knownKeys) {
       key = knownKeys.getRandomKey();
     }
-    ListenableFuture<RetrieveResponse> res = stub.retrieve(RetrieveRequest.newBuilder()
-        .setKey(key)
-        .build());
+
+    ClientCall<RetrieveRequest, RetrieveResponse> call =
+        chan.newCall(KvGson.RETRIEVE_METHOD, CallOptions.DEFAULT);
+    KvGson.RetrieveRequest req = new KvGson.RetrieveRequest();
+    req.key = key.array();
+    ListenableFuture<RetrieveResponse> res = ClientCalls.futureUnaryCall(call, req);
     res.addListener(() ->  {
       rpcCount.incrementAndGet();
       limiter.release();
@@ -150,7 +152,7 @@ final class KvClient {
     Futures.addCallback(res, new FutureCallback<RetrieveResponse>() {
       @Override
       public void onSuccess(RetrieveResponse result) {
-        if (result.getValue().size() < 1) {
+        if (result.value.length < 1) {
           error.compareAndSet(null, new RuntimeException("Invalid response"));
         }
       }
@@ -173,17 +175,20 @@ final class KvClient {
   /**
    * Updates a random key with a random value.
    */
-  private void doUpdate(KeyValueServiceFutureStub stub, AtomicReference<Throwable> error)
+  private void doUpdate(Channel chan, AtomicReference<Throwable> error)
       throws InterruptedException {
     limiter.acquire();
-    ByteString key;
+    ByteBuffer key;
     synchronized (knownKeys) {
       key = knownKeys.getRandomKey();
     }
-    ListenableFuture<UpdateResponse> res = stub.update(UpdateRequest.newBuilder()
-        .setKey(key)
-        .setValue(randomBytes(MEAN_VALUE_SIZE))
-        .build());
+    ClientCall<UpdateRequest, UpdateResponse> call =
+        channel.newCall(KvGson.UPDATE_METHOD, CallOptions.DEFAULT);
+    KvGson.UpdateRequest req = new KvGson.UpdateRequest();
+    req.key = key.array();
+    req.value = randomBytes(MEAN_VALUE_SIZE).array();
+
+    ListenableFuture<UpdateResponse> res = ClientCalls.futureUnaryCall(call, req);
     res.addListener(() ->  {
       rpcCount.incrementAndGet();
       limiter.release();
@@ -191,9 +196,6 @@ final class KvClient {
     Futures.addCallback(res, new FutureCallback<UpdateResponse>() {
       @Override
       public void onSuccess(UpdateResponse result) {
-        if (!result.equals(UpdateResponse.getDefaultInstance())) {
-          error.compareAndSet(null, new RuntimeException("Invalid response"));
-        }
       }
 
       @Override
@@ -214,15 +216,19 @@ final class KvClient {
   /**
    * Deletes the value of a random key.
    */
-  private void doDelete(KeyValueServiceFutureStub stub, AtomicReference<Throwable> error)
+  private void doDelete(Channel chan, AtomicReference<Throwable> error)
       throws InterruptedException {
     limiter.acquire();
-    ByteString key;
+    ByteBuffer key;
     synchronized (knownKeys) {
       key = knownKeys.getRandomKey();
       knownKeys.remove(key);
     }
-    ListenableFuture<DeleteResponse> res = stub.delete(DeleteRequest.newBuilder().setKey(key).build());
+    ClientCall<DeleteRequest, DeleteResponse> call =
+        chan.newCall(KvGson.DELETE_METHOD, CallOptions.DEFAULT);
+    DeleteRequest req = new DeleteRequest();
+    req.key = key.array();
+    ListenableFuture<DeleteResponse> res = ClientCalls.futureUnaryCall(call, req);
     res.addListener(() ->  {
       rpcCount.incrementAndGet();
       limiter.release();
@@ -230,9 +236,6 @@ final class KvClient {
     Futures.addCallback(res, new FutureCallback<DeleteResponse>() {
       @Override
       public void onSuccess(DeleteResponse result) {
-        if (!result.equals(DeleteResponse.getDefaultInstance())) {
-          error.compareAndSet(null, new RuntimeException("Invalid response"));
-        }
       }
 
       @Override
@@ -250,8 +253,8 @@ final class KvClient {
   /**
    * Creates and adds a key to the set of known keys.
    */
-  private ByteString createRandomKey() {
-    ByteString key;
+  private ByteBuffer createRandomKey() {
+    ByteBuffer key;
     do {
       key = randomBytes(MEAN_KEY_SIZE);
     } while (knownKeys.contains(key));
@@ -261,12 +264,12 @@ final class KvClient {
   /**
    * Creates an exponentially sized byte string with a mean size.
    */
-  private static ByteString randomBytes(int mean) {
+  private static ByteBuffer randomBytes(int mean) {
     Random random = new Random();
     // An exponentially distributed random number.
     int size = (int) Math.round(mean * -Math.log(1 - random.nextDouble()));
     byte[] bytes = new byte[1 + size];
     random.nextBytes(bytes);
-    return ByteString.copyFrom(bytes);
+    return ByteBuffer.wrap(bytes);
   }
 }

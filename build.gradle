@@ -2,7 +2,6 @@ group 'io-grpc-examples'
 version '1.0-SNAPSHOT'
 
 apply plugin: 'java'
-apply plugin: 'com.google.protobuf'
 
 
 sourceCompatibility = 1.8
@@ -13,7 +12,10 @@ repositories {
 
 dependencies {
     compile 'org.codehaus.groovy:groovy-all:2.3.11'
-    compile 'io.grpc:grpc-all:1.10.0'
+    compile 'io.grpc:grpc-core:1.13.1'
+    compile 'io.grpc:grpc-stub:1.13.1'
+    compile 'io.grpc:grpc-netty:1.13.1'
+    compile group: 'com.google.code.gson', name: 'gson', version: '2.8.5'
 }
 
 
@@ -24,35 +26,9 @@ buildscript {
     dependencies {
         // ASSUMES GRADLE 2.12 OR HIGHER. Use plugin version 0.7.5 with earlier
         // gradle versions
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.3'
     }
 }
 
-protobuf {
-    protoc {
-        artifact = 'com.google.protobuf:protoc:3.5.1-1'
-    }
-    plugins {
-        grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.10.0"
-        }
-    }
-    generateProtoTasks {
-        all()*.plugins {
-            grpc {}
-        }
-    }
-}
-
-// Inform IDEs like IntelliJ IDEA, Eclipse or NetBeans about the generated code.
-sourceSets {
-    main {
-        java {
-            srcDirs 'build/generated/source/proto/main/grpc'
-            srcDirs 'build/generated/source/proto/main/java'
-        }
-    }
-}
 
 
 

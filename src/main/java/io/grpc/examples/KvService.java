@@ -1,16 +1,6 @@
 package io.grpc.examples;
 
-import com.google.protobuf.ByteString;
 import io.grpc.Status;
-import io.grpc.examples.proto.CreateRequest;
-import io.grpc.examples.proto.CreateResponse;
-import io.grpc.examples.proto.DeleteRequest;
-import io.grpc.examples.proto.DeleteResponse;
-import io.grpc.examples.proto.KeyValueServiceGrpc.KeyValueServiceImplBase;
-import io.grpc.examples.proto.RetrieveRequest;
-import io.grpc.examples.proto.RetrieveResponse;
-import io.grpc.examples.proto.UpdateRequest;
-import io.grpc.examples.proto.UpdateResponse;
 import io.grpc.stub.StreamObserver;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,7 +13,7 @@ import java.util.concurrent.TimeUnit;
  * thread safe methods for creating, retrieving, updating, and deleting values.  (These are
  * commonly known as "CRUD" operations.)
  */
-final class KvService extends KeyValueServiceImplBase {
+final class KvService extends KvGson.KeyValueServiceImplBase {
 
   private static final long READ_DELAY_MILLIS = 10;
   private static final long WRITE_DELAY_MILLIS = 50;
@@ -32,12 +22,12 @@ final class KvService extends KeyValueServiceImplBase {
 
   @Override
   public void create(
-      CreateRequest request, StreamObserver<CreateResponse> responseObserver) {
-    ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
-    ByteBuffer value = request.getValue().asReadOnlyByteBuffer();
+      KvGson.CreateRequest request, StreamObserver<KvGson.CreateResponse> responseObserver) {
+    ByteBuffer key = ByteBuffer.wrap(request.key);
+    ByteBuffer value = ByteBuffer.wrap(request.value);
     simulateWork(WRITE_DELAY_MILLIS);
     if (store.putIfAbsent(key, value) == null) {
-      responseObserver.onNext(CreateResponse.getDefaultInstance());
+      responseObserver.onNext(new KvGson.CreateResponse());
       responseObserver.onCompleted();
       return;
     }
@@ -45,14 +35,15 @@ final class KvService extends KeyValueServiceImplBase {
   }
 
   @Override
-  public void retrieve(RetrieveRequest request,
-      StreamObserver<RetrieveResponse> responseObserver) {
-    ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
+  public void retrieve(KvGson.RetrieveRequest request,
+      StreamObserver<KvGson.RetrieveResponse> responseObserver) {
+    ByteBuffer key = ByteBuffer.wrap(request.key);
     simulateWork(READ_DELAY_MILLIS);
     ByteBuffer value = store.get(key);
     if (value != null) {
-      responseObserver.onNext(
-          RetrieveResponse.newBuilder().setValue(ByteString.copyFrom(value.slice())).build());
+      KvGson.RetrieveResponse response = new KvGson.RetrieveResponse();
+      response.value = value.array();
+      responseObserver.onNext(response);
       responseObserver.onCompleted();
       return;
     }
@@ -61,9 +52,9 @@ final class KvService extends KeyValueServiceImplBase {
 
   @Override
   public void update(
-      UpdateRequest request, StreamObserver<UpdateResponse> responseObserver) {
-    ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
-    ByteBuffer newValue = request.getValue().asReadOnlyByteBuffer();
+      KvGson.UpdateRequest request, StreamObserver<KvGson.UpdateResponse> responseObserver) {
+    ByteBuffer key = ByteBuffer.wrap(request.key);
+    ByteBuffer newValue = ByteBuffer.wrap(request.value);
     simulateWork(WRITE_DELAY_MILLIS);
     ByteBuffer oldValue;
     do {
@@ -73,17 +64,17 @@ final class KvService extends KeyValueServiceImplBase {
         return;
       }
     } while (!store.replace(key, oldValue, newValue));
-    responseObserver.onNext(UpdateResponse.getDefaultInstance());
+    responseObserver.onNext(new KvGson.UpdateResponse());
     responseObserver.onCompleted();
   }
 
   @Override
   public void delete(
-      DeleteRequest request, StreamObserver<DeleteResponse> responseObserver) {
-    ByteBuffer key = request.getKey().asReadOnlyByteBuffer();
+      KvGson.DeleteRequest request, StreamObserver<KvGson.DeleteResponse> responseObserver) {
+    ByteBuffer key = ByteBuffer.wrap(request.key);
     simulateWork(WRITE_DELAY_MILLIS);
     store.remove(key);
-    responseObserver.onNext(DeleteResponse.getDefaultInstance());
+    responseObserver.onNext(new KvGson.DeleteResponse());
     responseObserver.onCompleted();
   }
 
