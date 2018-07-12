@@ -1,6 +1,10 @@
 package io.grpc.examples;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import io.grpc.BindableService;
 import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.Marshaller;
@@ -13,7 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Base64;
 
 final class KvGson {
 
@@ -116,8 +120,20 @@ final class KvGson {
     }
   }
 
+  private static final Gson gson =
+      new GsonBuilder().registerTypeAdapter(byte[].class, new TypeAdapter<byte[]>() {
+    @Override
+    public void write(JsonWriter out, byte[] value) throws IOException {
+      out.value(Base64.getEncoder().encodeToString(value));
+    }
+
+    @Override
+    public byte[] read(JsonReader in) throws IOException {
+      return Base64.getDecoder().decode(in.nextString());
+    }
+  }).create();
+
   static <T> Marshaller<T> marshallerFor(Class<T> clz) {
-    Gson gson = new Gson();
     return new Marshaller<T>() {
       @Override
       public InputStream stream(T value) {
