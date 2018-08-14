@@ -1,6 +1,7 @@
 # Gradle
-build
+build/*
 gradle.properties
+!/build/generated
 .gradle
 local.properties
 out
