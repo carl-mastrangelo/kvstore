@@ -10,14 +10,14 @@ import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.Status;
 import io.grpc.Status.Code;
-import io.grpc.examples.KvGson.CreateRequest;
-import io.grpc.examples.KvGson.CreateResponse;
-import io.grpc.examples.KvGson.DeleteRequest;
-import io.grpc.examples.KvGson.DeleteResponse;
-import io.grpc.examples.KvGson.RetrieveRequest;
-import io.grpc.examples.KvGson.RetrieveResponse;
-import io.grpc.examples.KvGson.UpdateRequest;
-import io.grpc.examples.KvGson.UpdateResponse;
+import io.grpc.examples.KvJava.CreateRequest;
+import io.grpc.examples.KvJava.CreateResponse;
+import io.grpc.examples.KvJava.DeleteRequest;
+import io.grpc.examples.KvJava.DeleteResponse;
+import io.grpc.examples.KvJava.RetrieveRequest;
+import io.grpc.examples.KvJava.RetrieveResponse;
+import io.grpc.examples.KvJava.UpdateRequest;
+import io.grpc.examples.KvJava.UpdateResponse;
 import io.grpc.stub.ClientCalls;
 import java.nio.ByteBuffer;
 import java.util.Random;
@@ -96,8 +96,8 @@ final class KvClient {
     limiter.acquire();
     ByteBuffer key = createRandomKey();
     ClientCall<CreateRequest, CreateResponse> call =
-        chan.newCall(KvGson.CREATE_METHOD, CallOptions.DEFAULT);
-    KvGson.CreateRequest req = new KvGson.CreateRequest();
+        chan.newCall(KvJava.CREATE_METHOD, CallOptions.DEFAULT);
+    KvJava.CreateRequest req = new KvJava.CreateRequest();
     req.key = key.array();
     req.value = randomBytes(MEAN_VALUE_SIZE).array();
 
@@ -141,8 +141,8 @@ final class KvClient {
     }
 
     ClientCall<RetrieveRequest, RetrieveResponse> call =
-        chan.newCall(KvGson.RETRIEVE_METHOD, CallOptions.DEFAULT);
-    KvGson.RetrieveRequest req = new KvGson.RetrieveRequest();
+        chan.newCall(KvJava.RETRIEVE_METHOD, CallOptions.DEFAULT);
+    KvJava.RetrieveRequest req = new KvJava.RetrieveRequest();
     req.key = key.array();
     ListenableFuture<RetrieveResponse> res = ClientCalls.futureUnaryCall(call, req);
     res.addListener(() ->  {
@@ -183,8 +183,8 @@ final class KvClient {
       key = knownKeys.getRandomKey();
     }
     ClientCall<UpdateRequest, UpdateResponse> call =
-        channel.newCall(KvGson.UPDATE_METHOD, CallOptions.DEFAULT);
-    KvGson.UpdateRequest req = new KvGson.UpdateRequest();
+        channel.newCall(KvJava.UPDATE_METHOD, CallOptions.DEFAULT);
+    KvJava.UpdateRequest req = new KvJava.UpdateRequest();
     req.key = key.array();
     req.value = randomBytes(MEAN_VALUE_SIZE).array();
 
@@ -225,7 +225,7 @@ final class KvClient {
       knownKeys.remove(key);
     }
     ClientCall<DeleteRequest, DeleteResponse> call =
-        chan.newCall(KvGson.DELETE_METHOD, CallOptions.DEFAULT);
+        chan.newCall(KvJava.DELETE_METHOD, CallOptions.DEFAULT);
     DeleteRequest req = new DeleteRequest();
     req.key = key.array();
     ListenableFuture<DeleteResponse> res = ClientCalls.futureUnaryCall(call, req);

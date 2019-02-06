@@ -11,14 +11,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
 
-final class KvGson {
+final class KvJava {
 
   private static final String SERVICE_NAME = "io.grpc.KeyValueService";
 
@@ -109,16 +106,16 @@ final class KvGson {
 
   static abstract class KeyValueServiceImplBase implements BindableService {
     public abstract void create(
-        KvGson.CreateRequest request, StreamObserver<CreateResponse> responseObserver);
+        KvJava.CreateRequest request, StreamObserver<CreateResponse> responseObserver);
 
-    public abstract void retrieve(KvGson.RetrieveRequest request,
-        StreamObserver<KvGson.RetrieveResponse> responseObserver);
+    public abstract void retrieve(KvJava.RetrieveRequest request,
+        StreamObserver<KvJava.RetrieveResponse> responseObserver);
 
     public abstract void update(
-        KvGson.UpdateRequest request, StreamObserver<KvGson.UpdateResponse> responseObserver);
+        KvJava.UpdateRequest request, StreamObserver<KvJava.UpdateResponse> responseObserver);
 
     public abstract void delete(
-        KvGson.DeleteRequest request, StreamObserver<KvGson.DeleteResponse> responseObserver);
+        KvJava.DeleteRequest request, StreamObserver<KvJava.DeleteResponse> responseObserver);
 
     @Override
     public final ServerServiceDefinition bindService() {
