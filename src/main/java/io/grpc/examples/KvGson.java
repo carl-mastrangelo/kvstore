@@ -1,10 +1,5 @@
 package io.grpc.examples;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import io.grpc.BindableService;
 import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.Marshaller;
@@ -13,22 +8,30 @@ import io.grpc.ServerServiceDefinition;
 import io.grpc.stub.ServerCalls;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 final class KvGson {
 
   private static final String SERVICE_NAME = "io.grpc.KeyValueService";
 
-  static final class CreateRequest {
+  static final class CreateRequest implements Serializable {
+    private static final long serialVersionUID = 1000;
+
     byte[] key;
     byte[] value;
   }
 
-  static final class CreateResponse{}
+  static final class CreateResponse implements Serializable {
+    private static final long serialVersionUID = 2000;
+  }
 
   static final MethodDescriptor<CreateRequest, CreateResponse> CREATE_METHOD =
       MethodDescriptor.newBuilder(
@@ -40,11 +43,15 @@ final class KvGson {
           .setSampledToLocalTracing(true)
           .build();
 
-  static final class RetrieveRequest {
+  static final class RetrieveRequest implements Serializable {
+    private static final long serialVersionUID = 3000;
+
     byte[] key;
   }
 
-  static final class RetrieveResponse {
+  static final class RetrieveResponse implements Serializable {
+    private static final long serialVersionUID = 4000;
+
     byte[] value;
   }
 
@@ -58,12 +65,16 @@ final class KvGson {
           .setSampledToLocalTracing(true)
           .build();
 
-  static final class UpdateRequest {
+  static final class UpdateRequest implements Serializable {
+    private static final long serialVersionUID = 5000;
+
     byte[] key;
     byte[] value;
   }
 
-  static final class UpdateResponse {}
+  static final class UpdateResponse implements Serializable {
+    private static final long serialVersionUID = 6000;
+  }
 
   static final MethodDescriptor<UpdateRequest, UpdateResponse> UPDATE_METHOD =
       MethodDescriptor.newBuilder(
@@ -76,11 +87,15 @@ final class KvGson {
           .build();
 
 
-  static final class DeleteRequest {
+  static final class DeleteRequest implements Serializable {
+    private static final long serialVersionUID = 7000;
+
     byte[] key;
   }
 
-  static final class DeleteResponse {}
+  static final class DeleteResponse implements Serializable {
+    private static final long serialVersionUID = 8000;
+  }
 
   static final MethodDescriptor<DeleteRequest, DeleteResponse> DELETE_METHOD =
       MethodDescriptor.newBuilder(
@@ -120,29 +135,28 @@ final class KvGson {
     }
   }
 
-  private static final Gson gson =
-      new GsonBuilder().registerTypeAdapter(byte[].class, new TypeAdapter<byte[]>() {
-    @Override
-    public void write(JsonWriter out, byte[] value) throws IOException {
-      out.value(Base64.getEncoder().encodeToString(value));
-    }
-
-    @Override
-    public byte[] read(JsonReader in) throws IOException {
-      return Base64.getDecoder().decode(in.nextString());
-    }
-  }).create();
-
   static <T> Marshaller<T> marshallerFor(Class<T> clz) {
     return new Marshaller<T>() {
       @Override
       public InputStream stream(T value) {
-        return new ByteArrayInputStream(gson.toJson(value, clz).getBytes(StandardCharsets.UTF_8));
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+          oos.writeObject(value);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+        return new ByteArrayInputStream(baos.toByteArray());
       }
 
       @Override
       public T parse(InputStream stream) {
-        return gson.fromJson(new InputStreamReader(stream, StandardCharsets.UTF_8), clz);
+        try (ObjectInputStream ois = new ObjectInputStream(stream)) {
+          return clz.cast(ois.readObject());
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        } catch (ClassNotFoundException e) {
+          throw new RuntimeException(e);
+        }
       }
     };
   }
