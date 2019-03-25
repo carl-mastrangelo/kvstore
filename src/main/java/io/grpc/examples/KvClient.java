@@ -65,15 +65,7 @@ final class KvClient {
       int command = random.nextInt(4);
       if (command == 0) {
         doCreate(channel, errors);
-        continue;
-      }
-      synchronized (knownKeys) {
-        // If we don't know about any keys, retry with a new random action.
-        if (knownKeys.isEmpty()) {
-          continue;
-        }
-      }
-      if (command == 1) {
+      } else if (command == 1) {
         doRetrieve(channel, errors);
       } else if (command == 2) {
         doUpdate(channel, errors);
@@ -134,12 +126,17 @@ final class KvClient {
    */
   private void doRetrieve(Channel chan, AtomicReference<Throwable> error)
       throws InterruptedException {
-    limiter.acquire();
+
     ByteBuffer key;
     synchronized (knownKeys) {
       key = knownKeys.getRandomKey();
     }
+    if (key == null) {
+      logger.log(Level.FINE, "Nothing to retrieve, continue with the next random action.");
+      return;
+    }
 
+    limiter.acquire();
     ClientCall<RetrieveRequest, RetrieveResponse> call =
         chan.newCall(KvJava.RETRIEVE_METHOD, CallOptions.DEFAULT);
     KvJava.RetrieveRequest req = new KvJava.RetrieveRequest();
@@ -177,11 +174,17 @@ final class KvClient {
    */
   private void doUpdate(Channel chan, AtomicReference<Throwable> error)
       throws InterruptedException {
-    limiter.acquire();
+
     ByteBuffer key;
     synchronized (knownKeys) {
       key = knownKeys.getRandomKey();
     }
+    if (key == null) {
+      logger.log(Level.FINE, "Nothing to update, continue with the next random action.");
+      return;
+    }
+
+    limiter.acquire();
     ClientCall<UpdateRequest, UpdateResponse> call =
         channel.newCall(KvJava.UPDATE_METHOD, CallOptions.DEFAULT);
     KvJava.UpdateRequest req = new KvJava.UpdateRequest();
@@ -218,12 +221,20 @@ final class KvClient {
    */
   private void doDelete(Channel chan, AtomicReference<Throwable> error)
       throws InterruptedException {
-    limiter.acquire();
+
     ByteBuffer key;
     synchronized (knownKeys) {
       key = knownKeys.getRandomKey();
-      knownKeys.remove(key);
+      if (key != null) {
+        knownKeys.remove(key);
+      }
     }
+    if (key == null) { // log outside of a synchronized block
+      logger.log(Level.FINE, "Nothing to delete, continue with the next random action.");
+      return;
+    }
+
+    limiter.acquire();
     ClientCall<DeleteRequest, DeleteResponse> call =
         chan.newCall(KvJava.DELETE_METHOD, CallOptions.DEFAULT);
     DeleteRequest req = new DeleteRequest();

@@ -18,6 +18,10 @@ final class RandomAccessSet<T> {
   }
 
   T getRandomKey() {
+    int nodes = nodeList.size();
+    if (nodes == 0) {
+      return null;
+    }
     Random r = new Random();
     return nodeList.get(r.nextInt(nodeList.size())).value;
   }
