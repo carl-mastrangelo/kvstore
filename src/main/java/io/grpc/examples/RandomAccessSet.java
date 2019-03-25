@@ -1,5 +1,6 @@
 package io.grpc.examples;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +18,11 @@ final class RandomAccessSet<T> {
     return nodeMap.isEmpty();
   }
 
+  /**
+   * Select a random key from the set.
+   * @return A key or {@code null} if the set is empty.
+   */
+  @Nullable
   T getRandomKey() {
     int nodes = nodeList.size();
     if (nodes == 0) {
