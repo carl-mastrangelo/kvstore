@@ -1,22 +1,3 @@
-group 'io-grpc-examples'
-version '1.0-SNAPSHOT'
-
-apply plugin: 'java'
-apply plugin: 'com.google.protobuf'
-
-
-sourceCompatibility = 1.8
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    compile 'org.codehaus.groovy:groovy-all:2.3.11'
-    compile 'io.grpc:grpc-all:1.10.0'
-}
-
-
 buildscript {
     repositories {
         mavenCentral()
@@ -26,6 +7,34 @@ buildscript {
         // gradle versions
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.3'
     }
+    dependencies {
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.12'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.google.protobuf' version '0.8.12'
+    // Generate IntelliJ IDEA's .idea & .iml project files
+    id 'idea'
+}
+
+group 'io-grpc-examples'
+version '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.codehaus.groovy:groovy-all:2.3.11'
+    compile 'io.grpc:grpc-all:1.10.0'
 }
 
 protobuf {
@@ -54,14 +63,7 @@ sourceSets {
     }
 }
 
-
-
-
-apply plugin: 'application'
-
-// Generate IntelliJ IDEA's .idea & .iml project files
-apply plugin: 'idea'
-
-mainClassName = "io.grpc.examples.KvRunner"
-
-applicationDefaultJvmArgs = ["-Xmx8g", "-Xms8g"]
+application {
+    mainClass = "io.grpc.examples.KvRunner"
+    applicationDefaultJvmArgs = ["-Xmx8g", "-Xms8g"]
+}
